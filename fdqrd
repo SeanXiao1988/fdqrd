@@ -1,0 +1,34 @@
+#!/bin/bash
+
+#set -e # Exit the script if an error happens
+
+# make sure programe exists
+command -v uuidgen >/dev/null 2>&1 || { echo >&2 "I require \033[33m uuidgen \033[0m but it's not installed.  Aborting."; exit 1; }
+command -v zbarimg >/dev/null 2>&1 || { echo >&2 "I require zbarimg(brew install zbar) but it's not installed.  Aborting."; exit 1; }
+
+tempfoo=`basename $0`
+TMPFILE=`mktemp -q ${TMPDIR}${tempfoo}-$(uuidgen).jpg`
+if [ $? -ne 0 ]; then
+	echo "$0: Can't create temp file, exiting..."
+	exit 0
+fi
+
+# Screenshot
+screencapture -s $TMPFILE
+
+Result=`zbarimg -q ${TMPFILE} | uniq`
+ResultCount=`echo $Result | grep "QR-Code" | wc -l`
+
+if [ $ResultCount -le 0 ] ;then
+	echo "not found qrcode in picture"
+	exit 0;
+elif [ $ResultCount -gt 1 ]; then
+	echo "${ResultCount} result found in picture, only one support"
+	exit 0;
+fi
+
+# Result to clipboard
+echo ${Result} | cut -c 9- | tr -d '\n'| pbcopy
+
+# Notification
+osascript -e "display notification \"Success(${Result})\" with title \"${tempfoo}\""
